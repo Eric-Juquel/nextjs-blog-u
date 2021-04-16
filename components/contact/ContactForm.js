@@ -1,28 +1,69 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import classes from './ContactForm.module.css';
+import Notification from '../ui/Notification';
+import { sendContactData } from '../../lib/contact-util';
 
 const ContactForm = () => {
   const [enteredEmail, setEnteredEmail] = useState('');
   const [enteredName, setEnteredName] = useState('');
   const [enteredMessage, setEnteredMessage] = useState('');
+  const [requestStatus, setRequestStatus] = useState(); // 'pending', 'success', 'error', null
+  const [requestError, setRequestError] = useState();
 
-  const sendMessageHandler = (e) => {
+  useEffect(() => {
+    if (requestStatus === 'success' || requestStatus === 'error') {
+      const timer = setTimeout(() => {
+        setRequestStatus(null)
+        setRequestError(null)
+      }, 3000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [requestStatus])
+
+  const sendMessageHandler = async (e) => {
     e.preventDefault();
 
     //optionnal: add a client side validation
 
-    fetch('/api/contact', {
-      method: 'POST',
-      body: JSON.stringify({
+    setRequestStatus('pending');
+
+    try {
+      await sendContactData({
         email: enteredEmail,
         name: enteredName,
         message: enteredMessage,
-      }),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+      });
+      setRequestStatus('success');
+    } catch (error) {
+      setRequestError(error.message);
+      setRequestStatus('error');
+    }
   };
+
+  let notification;
+
+  if (requestStatus === 'pending') {
+    notification = {
+      status: 'pending',
+      title: 'Sending message...',
+      message: 'Your message is on it way!',
+    };
+  }
+  if (requestStatus === 'success') {
+    notification = {
+      status: 'success',
+      title: 'Success',
+      message: 'Message sent successfully!',
+    };
+  }
+  if (requestStatus === 'error') {
+    notification = {
+      status: 'error',
+      title: 'Error!',
+      message: requestError,
+    };
+  }
 
   return (
     <section className={classes.contact}>
@@ -64,6 +105,13 @@ const ContactForm = () => {
           <button>Send Message</button>
         </div>
       </form>
+      {notification && (
+        <Notification
+          status={notification.status}
+          title={notification.title}
+          message={notification.message}
+        />
+      )}
     </section>
   );
 };
